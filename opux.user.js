@@ -100,7 +100,6 @@ function addExtendedBranding($) {
   if ($opuLink.length && !$opuLink.siblings('.opux-e').length) {
     $opuLink.after(' <span class="opux-e">e</span><span class="opux-x">x</span><span class="opux-rest">tended</span>');
 
-    // Find the “Limit pro zobrazení animací” section robustly (covers mojibake too)
     const $candidates = $('div.newuspas').filter(function () {
       const t = $(this).text().toLowerCase();
       return t.includes('limit pro zobrazení animací') || t.includes('limit pro zobrazen') || t.includes('limit pro zobrazeni animaci');
@@ -120,13 +119,11 @@ function addExtendedBranding($) {
       `;
       $candidates.first().before(delaySection);
 
-      // Toggle section on 'x'
       $('.opux-x').off('click.opux').on('click.opux', function (e) {
         e.preventDefault();
         $('.opux-delay-section').toggle();
       });
 
-      // Persist delay
       $('#opux-load-delay').off('change.opux').on('change.opux', function () {
         const v = parseInt($(this).val(), 10);
         if (v >= 100 && v <= 9999) {
@@ -139,63 +136,6 @@ function addExtendedBranding($) {
   }
 }
 
-// Initialize selection behavior & overlays on all boxes
-function initializeAllBoxes($) {
-  const $allBoxes = $('.box, .boxtop');
-
-  $allBoxes.each(function (index) {
-    $(this).data('index', index);
-
-    const $checkbox = $(this).find('input[type="checkbox"]');
-    if ($checkbox.prop('checked')) {
-      $(this).addClass('selected');
-      setTimeout(() => $checkbox.trigger('change'), 0);
-    }
-
-    const id = $checkbox.val();
-    if (id && !$('#overlay_' + id).length) {
-      const overlay = $('<span id="overlay_' + id + '" class="overlay"></span>').hide();
-      $(this).css('position', 'relative').append(overlay);
-    }
-  });
-
-  let lastClickedIndex = -1;
-
-  $allBoxes.off('click.opux').on('click.opux', function (e) {
-    if ($(e.target).is('button, input') || e.detail !== 1) return;
-
-    const $this = $(this);
-    const $cb = $this.find('input[type="checkbox"]');
-    const currentIndex = $this.data('index');
-
-    if (e.shiftKey && lastClickedIndex !== -1) {
-      const $fresh = $('.box, .boxtop');
-      const start = Math.min(lastClickedIndex, currentIndex);
-      const end = Math.max(lastClickedIndex, currentIndex);
-      $fresh.slice(start, end + 1).each(function () {
-        const $box = $(this);
-        const cb = $box.find('input[type="checkbox"]');
-        if (!cb.prop('checked')) {
-          cb.prop('checked', true);
-          $box.addClass('selected');
-          cb.trigger('change');
-        }
-      });
-    } else {
-      $cb.prop('checked', !$cb.prop('checked'));
-      $this.toggleClass('selected', $cb.prop('checked'));
-      $cb.trigger('change');
-      lastClickedIndex = currentIndex;
-    }
-
-    e.preventDefault();
-    e.stopImmediatePropagation();
-  });
-
-  // Disable default lightbox clicker
-  $('.swipebox').off('click.swipebox');
-}
-
 // Replace .gif/.webp thumbs with placeholders (performance)
 function replaceAnimThumbnails($) {
   $('.box, .boxtop').each(function () {
@@ -203,7 +143,6 @@ function replaceAnimThumbnails($) {
     const $img = $link.find('img.inbox[src]');
     const src = $img.attr('src');
     if (!src) return;
-
     if (src.endsWith('.gif') || src.endsWith('.webp')) {
       const ext = src.split('.').pop().toUpperCase();
       $img.replaceWith('<div class="anim-placeholder">.' + ext + '</div>');
@@ -214,13 +153,13 @@ function replaceAnimThumbnails($) {
 // Lazy-load more pages into the gallery with overlay + delay
 function loadExtraPages($, targetCount, $loadingOverlay) {
   const currentStart = parseInt(new URLSearchParams(window.location.search).get('recordStart') || '1', 10);
-  const itemsPerPage = 50;
   let loadedCount = $('.box, .boxtop').length;
   const loadDelay = parseInt(localStorage.getItem('opux_load_delay') || '500', 10);
 
   function fetchNextPage(pageNum) {
     if (loadedCount >= targetCount || pageNum > 11) {
-      initializeAllBoxes($);
+      // After loading completes, just resync visuals; DO NOT bind clicks or touch swipebox
+      bindSelectionVisuals($);
       replaceAnimThumbnails($);
       $loadingOverlay.removeClass('active');
       return;
@@ -242,7 +181,7 @@ function loadExtraPages($, targetCount, $loadingOverlay) {
           $loadingOverlay.removeClass('active');
         }
       }).fail(function () {
-        initializeAllBoxes($);
+        bindSelectionVisuals($);
         replaceAnimThumbnails($);
         $loadingOverlay.removeClass('active');
       });
@@ -253,10 +192,9 @@ function loadExtraPages($, targetCount, $loadingOverlay) {
 }
 
 // Expose to global (simple userscript environment)
-window.addExtendedBranding = window.addExtendedBranding || addExtendedBranding;
-window.initializeAllBoxes   = window.initializeAllBoxes   || initializeAllBoxes;
-window.replaceAnimThumbnails= window.replaceAnimThumbnails|| replaceAnimThumbnails;
-window.loadExtraPages       = window.loadExtraPages       || loadExtraPages;
+window.addExtendedBranding   = window.addExtendedBranding   || addExtendedBranding;
+window.replaceAnimThumbnails = window.replaceAnimThumbnails || replaceAnimThumbnails;
+window.loadExtraPages        = window.loadExtraPages        || loadExtraPages;
 
 
 // opux-settings.js
@@ -295,7 +233,6 @@ window.initSettingsPage = window.initSettingsPage || initSettingsPage;
 // opux-userpanel.js
 
 function initUserPanel($, $loadingOverlay) {
-  // Read images-per-page selection saved from settings
   const imagesPerPageIdx = parseInt(localStorage.getItem('opu_images_per_page') || '2', 10);
   const itemsPerPage = [10, 20, 50, 100, 200, 500, 1000][imagesPerPageIdx] || 50;
   const useHack = itemsPerPage > 50;
@@ -317,19 +254,16 @@ function initUserPanel($, $loadingOverlay) {
     $loadingOverlay.remove();
   }
 
-  // No button/form handlers. No global deselect.
   setTimeout(() => addExtendedBranding($), 500);
 }
 
 /** Visual selection sync (observe native changes only) */
 function bindSelectionVisuals($) {
-  // Initial paint
   $('.box, .boxtop').each(function () {
     const $cb = $(this).find('input[type="checkbox"][name^="item"]');
     $(this).toggleClass('selected', $cb.prop('checked'));
   });
 
-  // Observe any native state changes
   $(document)
     .off('change.opux.select', 'input[type="checkbox"][name^="item"]')
     .on('change.opux.select', 'input[type="checkbox"][name^="item"]', function () {
@@ -342,11 +276,11 @@ function enableBoxClickSelection($) {
   let lastIndex = -1;
   let allowViewerOnce = false;
 
-  // Prevent single-click on the viewer link, but allow our double-click path
+  // Prevent single-click on the viewer link; allow only our dblclick path
   $(document)
     .off('click.opux.prevent', 'a.swipebox')
     .on('click.opux.prevent', 'a.swipebox', function (e) {
-      if (allowViewerOnce) return; // let synthetic dblclick open pass through
+      if (allowViewerOnce) return;
       e.preventDefault();
       e.stopImmediatePropagation();
     });
@@ -356,11 +290,8 @@ function enableBoxClickSelection($) {
     .off('click.opux.box', '.box, .boxtop')
     .on('click.opux.box', '.box, .boxtop', function (e) {
       const $t = $(e.target);
-
-      // Ignore UI controls; let native handlers work
       if ($t.is('input,button,select,textarea,label')) return;
 
-      // Block single-click viewer open if the click is on/inside the thumbnail/link
       if ($t.closest('a.swipebox, .inbox-wrap, img.inbox, .anim-placeholder').length) {
         e.preventDefault();
         e.stopImmediatePropagation();
@@ -371,7 +302,6 @@ function enableBoxClickSelection($) {
       if (!$cb.length) return;
 
       if (e.shiftKey && lastIndex !== -1) {
-        // Range select using REAL clicks to keep OPU state in sync
         const $all = $('.box, .boxtop');
         const curr = $this.index('.box, .boxtop');
         const start = Math.min(lastIndex, curr);
@@ -382,25 +312,20 @@ function enableBoxClickSelection($) {
           if ($c.length && !$c.prop('checked')) $c.get(0).click();
         }
       } else {
-        // Toggle selection via native click so OPU logic runs
-        $cb.get(0).click();
+        $cb.get(0).click(); // native click → OPU keeps state correctly
         lastIndex = $this.index('.box, .boxtop');
       }
     });
 
-  // Double-click opens the viewer (trigger the site’s own swipebox handler)
+  // Double-click opens the viewer
   $(document)
     .off('dblclick.opux.box', '.box, .boxtop')
-    .on('dblclick.opux.box', '.box, .boxtop', function (e) {
+    .on('dblclick.opux.box', '.box, .boxtop', function () {
       const $a = $(this).find('a.swipebox').first();
       if (!$a.length) return;
-
-      // Temporarily allow viewer click to pass
       allowViewerOnce = true;
-      // Use native click on the link; let OPU’s viewer JS handle it
       const a = $a.get(0);
       if (a && typeof a.click === 'function') a.click();
-      // Reset flag after the event loop tick
       setTimeout(() => { allowViewerOnce = false; }, 0);
     });
 }
