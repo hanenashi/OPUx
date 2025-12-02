@@ -38,34 +38,58 @@ function initUserPanel($, $loadingOverlay) {
       }
     });
 
-  // ✅ Guard at the FORM level (don’t touch the buttons)
-  // Find the gallery form that owns tl_download / tl_smazat
-  // Use a broad selector but only act if the submitter is one of those buttons.
+  // ===== Robust submitter tracking + scoped selection guard =====
+  // Track the exact control that initiated submit (works with <button> and <input type=submit>)
+  let OPULastSubmitter = null;
+  $(document)
+    .off('click.opux.submitter')
+    .on(
+      'click.opux.submitter',
+      'button[name="tl_download"],button[name="tl_smazat"],input[name="tl_download"],input[name="tl_smazat"]',
+      function () {
+        OPULastSubmitter = this;
+      }
+    );
+
+  // Guard at the FORM level, but only for our two actions
   $(document)
     .off('submit.opux-guard')
     .on('submit.opux-guard', 'form', function (e) {
-      // Identify which submit button triggered the submit
+      // Determine submitter reliably
       const submitter =
         (e.originalEvent && e.originalEvent.submitter) ||
-        document.activeElement; // fallback
+        OPULastSubmitter ||
+        null;
 
-      if (!submitter) return; // nothing to do
+      // If we can't identify or it's not one of our buttons, let it pass
+      if (!submitter) return true;
 
-      const name = submitter.getAttribute && submitter.getAttribute('name');
-      if (name !== 'tl_download' && name !== 'tl_smazat') return; // not our concern
+      const nameAttr = submitter.getAttribute && submitter.getAttribute('name');
+      if (nameAttr !== 'tl_download' && nameAttr !== 'tl_smazat') return true;
 
-      const anySelected = $('input[name="item[]"]:checked').length > 0;
+      // Count selected items WITHIN THIS FORM (not globally)
+      const $form = $(this);
+      let anySelected = $form.find('input[type="checkbox"][name="item[]"]:checked').length > 0;
+
+      // Fallback (some OPU templates render checkboxes slightly outside form)
+      if (!anySelected) {
+        anySelected = $('input[type="checkbox"][name="item[]"]:checked').length > 0;
+      }
+
       if (!anySelected) {
         e.preventDefault();
-        // Messages from the original working code (Czech)
-        if (name === 'tl_download') {
+        // Messages matching original behavior
+        if (nameAttr === 'tl_download') {
           alert('Vyberte alespoň jednu položku k stažení!');
         } else {
           alert('Vyberte alespoň jednu položku ke smazání!');
         }
         return false;
       }
-      // else: let the native submit proceed untouched
+
+      // Clear submitter to avoid accidental reuse on the next submit
+      OPULastSubmitter = null;
+      // Allow native postback/download/delete to proceed untouched
       return true;
     });
 
