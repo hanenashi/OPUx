@@ -1,0 +1,14 @@
+.\.github
+.\.github\workflows
+.\.github\workflows\build.yml
+.\BKP
+.\BKP\opux_v1.31.user.js
+.\build.js
+.\opux.user.js
+.\README.md
+.\src
+.\src\opux-core.js
+.\src\opux-settings.js
+.\src\opux-style.js
+.\src\opux-userpanel.js
+.\src\opux-utils.js
