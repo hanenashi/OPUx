@@ -1,7 +1,6 @@
 // opux-userpanel.js
 
 function initUserPanel($, $loadingOverlay) {
-  // Read images-per-page selection saved from settings
   const imagesPerPageIdx = parseInt(localStorage.getItem('opu_images_per_page') || '2', 10);
   const itemsPerPage = [10, 20, 50, 100, 200, 500, 1000][imagesPerPageIdx] || 50;
   const useHack = itemsPerPage > 50;
@@ -23,19 +22,16 @@ function initUserPanel($, $loadingOverlay) {
     $loadingOverlay.remove();
   }
 
-  // No button/form handlers. No global deselect.
   setTimeout(() => addExtendedBranding($), 500);
 }
 
 /** Visual selection sync (observe native changes only) */
 function bindSelectionVisuals($) {
-  // Initial paint
   $('.box, .boxtop').each(function () {
     const $cb = $(this).find('input[type="checkbox"][name^="item"]');
     $(this).toggleClass('selected', $cb.prop('checked'));
   });
 
-  // Observe any native state changes
   $(document)
     .off('change.opux.select', 'input[type="checkbox"][name^="item"]')
     .on('change.opux.select', 'input[type="checkbox"][name^="item"]', function () {
@@ -48,11 +44,11 @@ function enableBoxClickSelection($) {
   let lastIndex = -1;
   let allowViewerOnce = false;
 
-  // Prevent single-click on the viewer link, but allow our double-click path
+  // Prevent single-click on the viewer link; allow only our dblclick path
   $(document)
     .off('click.opux.prevent', 'a.swipebox')
     .on('click.opux.prevent', 'a.swipebox', function (e) {
-      if (allowViewerOnce) return; // let synthetic dblclick open pass through
+      if (allowViewerOnce) return;
       e.preventDefault();
       e.stopImmediatePropagation();
     });
@@ -62,11 +58,8 @@ function enableBoxClickSelection($) {
     .off('click.opux.box', '.box, .boxtop')
     .on('click.opux.box', '.box, .boxtop', function (e) {
       const $t = $(e.target);
-
-      // Ignore UI controls; let native handlers work
       if ($t.is('input,button,select,textarea,label')) return;
 
-      // Block single-click viewer open if the click is on/inside the thumbnail/link
       if ($t.closest('a.swipebox, .inbox-wrap, img.inbox, .anim-placeholder').length) {
         e.preventDefault();
         e.stopImmediatePropagation();
@@ -77,7 +70,6 @@ function enableBoxClickSelection($) {
       if (!$cb.length) return;
 
       if (e.shiftKey && lastIndex !== -1) {
-        // Range select using REAL clicks to keep OPU state in sync
         const $all = $('.box, .boxtop');
         const curr = $this.index('.box, .boxtop');
         const start = Math.min(lastIndex, curr);
@@ -88,25 +80,20 @@ function enableBoxClickSelection($) {
           if ($c.length && !$c.prop('checked')) $c.get(0).click();
         }
       } else {
-        // Toggle selection via native click so OPU logic runs
-        $cb.get(0).click();
+        $cb.get(0).click(); // native click → OPU keeps state correctly
         lastIndex = $this.index('.box, .boxtop');
       }
     });
 
-  // Double-click opens the viewer (trigger the site’s own swipebox handler)
+  // Double-click opens the viewer
   $(document)
     .off('dblclick.opux.box', '.box, .boxtop')
-    .on('dblclick.opux.box', '.box, .boxtop', function (e) {
+    .on('dblclick.opux.box', '.box, .boxtop', function () {
       const $a = $(this).find('a.swipebox').first();
       if (!$a.length) return;
-
-      // Temporarily allow viewer click to pass
       allowViewerOnce = true;
-      // Use native click on the link; let OPU’s viewer JS handle it
       const a = $a.get(0);
       if (a && typeof a.click === 'function') a.click();
-      // Reset flag after the event loop tick
       setTimeout(() => { allowViewerOnce = false; }, 0);
     });
 }
