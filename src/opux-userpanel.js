@@ -6,8 +6,8 @@ function initUserPanel($, $loadingOverlay) {
   const itemsPerPage = [10, 20, 50, 100, 200, 500, 1000][imagesPerPageIdx] || 50;
   const useHack = itemsPerPage > 50;
 
-  // Initial bind (selection UX only)
-  initializeAllBoxes($);
+  // Bind purely visual sync to native checkbox changes (no custom toggling)
+  bindSelectionVisuals($);
 
   if (useHack) {
     replaceAnimThumbnails($);
@@ -22,39 +22,30 @@ function initUserPanel($, $loadingOverlay) {
     $loadingOverlay.remove();
   }
 
-  // === SAFE deselect: only empty space inside .box-wrap, not buttons/forms/header ===
-  $(document)
-    .off('click.opux.deselect')
-    .on('click.opux.deselect', function (e) {
-      const $t = $(e.target);
-
-      // If click is on/inside our action buttons or any form control → DO NOTHING
-      if (
-        $t.closest('button[name="tl_download"],button[name="tl_smazat"],input[name="tl_download"],input[name="tl_smazat"]').length ||
-        $t.is('input,button,select,textarea,label,a') ||
-        $t.closest('form').length
-      ) {
-        return;
-      }
-
-      // Only deselect when clicking inside the gallery container area
-      const $wrap = $t.closest('.box-wrap');
-      if (!$wrap.length) return;                // clicked outside gallery entirely
-      if ($t.closest('.box, .boxtop').length) return; // clicked on a box → let box handler manage
-
-      // Blank space inside gallery → deselect all
-      $('.box, .boxtop').each(function () {
-        const $cb = $(this).find('input[type="checkbox"]');
-        if ($cb.prop('checked')) {
-          $cb.prop('checked', false);
-          $(this).removeClass('selected');
-          $cb.trigger('change');
-        }
-      });
-    });
-
-  // IMPORTANT: No handlers on download/delete buttons. No form guards. Zero interference.
+  // IMPORTANT: No handlers on buttons/forms/click-outside.
+  // Let OPU's own code manage selection + submit entirely.
   setTimeout(() => addExtendedBranding($), 500);
+}
+
+/**
+ * Visual selection sync that DOES NOT change selection itself.
+ * We only observe native checkbox changes and mirror a CSS class.
+ */
+function bindSelectionVisuals($) {
+  // Initial paint
+  $('.box, .boxtop').each(function () {
+    const $cb = $(this).find('input[type="checkbox"][name^="item"]'); // tolerant
+    if ($cb.prop('checked')) $(this).addClass('selected');
+    else $(this).removeClass('selected');
+  });
+
+  // Observe changes (from user clicks OR site JS)
+  $(document)
+    .off('change.opux.select', 'input[type="checkbox"][name^="item"]')
+    .on('change.opux.select', 'input[type="checkbox"][name^="item"]', function () {
+      const $box = $(this).closest('.box, .boxtop');
+      $box.toggleClass('selected', this.checked);
+    });
 }
 
 // Expose
