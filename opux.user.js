@@ -307,46 +307,61 @@ function initUserPanel($, $loadingOverlay) {
     replaceAnimThumbnails($);
     loadExtraPages($, itemsPerPage, $loadingOverlay);
     setTimeout(() => replaceAnimThumbnails($), 1000);
-    $(document).off('load.opux', 'img.inbox').on('load.opux', 'img.inbox', function () {
-      replaceAnimThumbnails($);
-    });
+    $(document)
+      .off('load.opux', 'img.inbox')
+      .on('load.opux', 'img.inbox', function () {
+        replaceAnimThumbnails($);
+      });
   } else {
     $loadingOverlay.remove();
   }
 
   // Click outside deselects all
-  $(document).off('click.opux.deselect').on('click.opux.deselect', function (e) {
-    if (!$(e.target).closest('.box, .boxtop').length) {
-      $('.box, .boxtop').each(function () {
-        const $cb = $(this).find('input[type="checkbox"]');
-        if ($cb.prop('checked')) {
-          $cb.prop('checked', false);
-          $(this).removeClass('selected');
-          $cb.trigger('change');
-        }
-      });
-    }
-  });
+  $(document)
+    .off('click.opux.deselect')
+    .on('click.opux.deselect', function (e) {
+      if (!$(e.target).closest('.box, .boxtop').length) {
+        $('.box, .boxtop').each(function () {
+          const $cb = $(this).find('input[type="checkbox"]');
+          if ($cb.prop('checked')) {
+            $cb.prop('checked', false);
+            $(this).removeClass('selected');
+            $cb.trigger('change');
+          }
+        });
+      }
+    });
 
-  // Guard bulk actions (download/delete) unless something is selected
-  $('button[name="tl_download"]').off('.opux').on('click.opux', function (e) {
-    if ($('input[name="item[]"]:checked').length === 0) {
-      e.preventDefault();
-      alert('Vyberte alespoň jednu položku k stažení!');
-    } else {
-      // bounce to native
-      $(this).trigger('click.native');
-    }
-  }).on('click.native', function () { /* native hook placeholder */ });
+  // ✅ Guard bulk actions WITHOUT breaking native behavior
+  const ensureAnySelected = () => $('input[name="item[]"]:checked').length > 0;
 
-  $('button[name="tl_smazat"]').off('.opux').on('click.opux', function (e) {
-    if ($('input[name="item[]"]:checked').length === 0) {
-      e.preventDefault();
-      alert('Vyberte alespoň jednu položku ke smazání!');
-    } else {
-      $(this).trigger('click.native');
-    }
-  }).on('click.native', function () { /* native hook placeholder */ });
+  // Stáhnout (download)
+  $('button[name="tl_download"]')
+    .off('.opux')
+    .on('click.opux', function (e) {
+      if (!ensureAnySelected()) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        alert('Vyberte alespoň jednu položku k stažení!');
+        return false;
+      }
+      // else: allow native submit/click to proceed
+      return true;
+    });
+
+  // Smazat (delete)
+  $('button[name="tl_smazat"]')
+    .off('.opux')
+    .on('click.opux', function (e) {
+      if (!ensureAnySelected()) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        alert('Vyberte alespoň jednu položku ke smazání!');
+        return false;
+      }
+      // else: allow native submit/click to proceed
+      return true;
+    });
 
   setTimeout(() => addExtendedBranding($), 500);
 }
