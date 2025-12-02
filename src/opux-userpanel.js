@@ -22,20 +22,35 @@ function initUserPanel($, $loadingOverlay) {
     $loadingOverlay.remove();
   }
 
-  // Click outside deselects all (harmless to native logic)
+  // === SAFE deselect: only empty space inside .box-wrap, not buttons/forms/header ===
   $(document)
     .off('click.opux.deselect')
     .on('click.opux.deselect', function (e) {
-      if (!$(e.target).closest('.box, .boxtop').length) {
-        $('.box, .boxtop').each(function () {
-          const $cb = $(this).find('input[type="checkbox"]');
-          if ($cb.prop('checked')) {
-            $cb.prop('checked', false);
-            $(this).removeClass('selected');
-            $cb.trigger('change');
-          }
-        });
+      const $t = $(e.target);
+
+      // If click is on/inside our action buttons or any form control → DO NOTHING
+      if (
+        $t.closest('button[name="tl_download"],button[name="tl_smazat"],input[name="tl_download"],input[name="tl_smazat"]').length ||
+        $t.is('input,button,select,textarea,label,a') ||
+        $t.closest('form').length
+      ) {
+        return;
       }
+
+      // Only deselect when clicking inside the gallery container area
+      const $wrap = $t.closest('.box-wrap');
+      if (!$wrap.length) return;                // clicked outside gallery entirely
+      if ($t.closest('.box, .boxtop').length) return; // clicked on a box → let box handler manage
+
+      // Blank space inside gallery → deselect all
+      $('.box, .boxtop').each(function () {
+        const $cb = $(this).find('input[type="checkbox"]');
+        if ($cb.prop('checked')) {
+          $cb.prop('checked', false);
+          $(this).removeClass('selected');
+          $cb.trigger('change');
+        }
+      });
     });
 
   // IMPORTANT: No handlers on download/delete buttons. No form guards. Zero interference.
