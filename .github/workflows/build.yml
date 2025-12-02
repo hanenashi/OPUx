@@ -19,6 +19,5 @@ jobs:
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@users.noreply.github.com"
-          git add opux.user.js
-          git commit -m "Auto-build: update opux.user.js" || echo "No changes"
-          git push
+          git add opux.user.js || true
+          git diff --cached --quiet && echo "No changes to commit" || (git commit -m "Auto-build: update opux.user.js" && git push)
