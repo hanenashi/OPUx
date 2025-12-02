@@ -38,37 +38,38 @@ function initUserPanel($, $loadingOverlay) {
       }
     });
 
-  // ✅ Guard bulk actions WITHOUT breaking native behavior
-  const ensureAnySelected = () => $('input[name="item[]"]:checked').length > 0;
+  // ✅ Guard at the FORM level (don’t touch the buttons)
+  // Find the gallery form that owns tl_download / tl_smazat
+  // Use a broad selector but only act if the submitter is one of those buttons.
+  $(document)
+    .off('submit.opux-guard')
+    .on('submit.opux-guard', 'form', function (e) {
+      // Identify which submit button triggered the submit
+      const submitter =
+        (e.originalEvent && e.originalEvent.submitter) ||
+        document.activeElement; // fallback
 
-  // Stáhnout (download)
-  $('button[name="tl_download"]')
-    .off('.opux')
-    .on('click.opux', function (e) {
-      if (!ensureAnySelected()) {
+      if (!submitter) return; // nothing to do
+
+      const name = submitter.getAttribute && submitter.getAttribute('name');
+      if (name !== 'tl_download' && name !== 'tl_smazat') return; // not our concern
+
+      const anySelected = $('input[name="item[]"]:checked').length > 0;
+      if (!anySelected) {
         e.preventDefault();
-        e.stopImmediatePropagation();
-        alert('Vyberte alespoň jednu položku k stažení!');
+        // Messages from the original working code (Czech)
+        if (name === 'tl_download') {
+          alert('Vyberte alespoň jednu položku k stažení!');
+        } else {
+          alert('Vyberte alespoň jednu položku ke smazání!');
+        }
         return false;
       }
-      // else: allow native submit/click to proceed
+      // else: let the native submit proceed untouched
       return true;
     });
 
-  // Smazat (delete)
-  $('button[name="tl_smazat"]')
-    .off('.opux')
-    .on('click.opux', function (e) {
-      if (!ensureAnySelected()) {
-        e.preventDefault();
-        e.stopImmediatePropagation();
-        alert('Vyberte alespoň jednu položku ke smazání!');
-        return false;
-      }
-      // else: allow native submit/click to proceed
-      return true;
-    });
-
+  // No button handlers here on purpose — native behavior stays intact
   setTimeout(() => addExtendedBranding($), 500);
 }
 
